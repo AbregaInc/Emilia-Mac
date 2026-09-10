@@ -2,16 +2,27 @@
 
 **A second opinion for what you're hearing.**
 
+**Hackathon judges:** [Watch the 60-second demo](https://github.com/AbregaInc/Emilia-Mac/releases/download/v0.2.0/Emilia-60s-demo.mp4) · [Download the signed Mac app](https://github.com/AbregaInc/Emilia-Mac/releases/download/v0.2.0/Emilia-macOS-arm64.zip) · [Review guide](docs/judges.md)
+
+The demo uses the actual Emilia v8 research detector. Emilia was developed
+using data that we cannot redistribute; this public release excludes its
+training data, checkpoint and research-only reference audio. The downloadable
+app runs local Whisper or OpenAI Realtime plus Astra's transcript-based scam
+warnings without that detector. Amber and voice-supported impersonation warnings
+require the separately installed Emilia bundle. No other model is presented as Emilia.
+
 A native Mac app with Dock and menu-bar controls that listens to a microphone or system audio,
 transcribes with local Whisper or OpenAI Realtime, and asks GPT-6 Astra to identify
 actionable scam warning signs. Evidence-backed warnings appear as a red screen
 border and a movable, nonactivating card. The border does not intercept clicks.
 
-## Run on this Mac
+## Build and run
 
 Requires Apple Silicon, macOS 26+, Xcode command-line tools, CMake, Git and curl.
 
 ```sh
+git clone https://github.com/AbregaInc/Emilia-Mac.git
+cd Emilia-Mac
 bash scripts/setup-whisper.sh
 bash scripts/build-app.sh
 bash scripts/run.sh
@@ -145,6 +156,13 @@ are bundled from the checksum-verified local download, never committed to Git.
 The API key and voice-origin checkpoint are not bundled.
 
 ## Hackathon contribution
+
+Emilia's existing autoresearch project runs in Codex with OpenAI models
+directing experiments and evaluating results. Its recovered v8 detector uses
+three-second audio windows, a four-block W2v-BERT encoder, and routed fitted
+classifier heads. That research predates the hackathon; this submission is the
+native app and its live integration. See the [judges' review guide](docs/judges.md)
+for the code map, service attribution, and what can be reproduced publicly.
 
 This standalone repository contains the Mac capture/UI, local Whisper bridge,
 Astra integration, grounding policy, lifecycle controls, checks and packaging
