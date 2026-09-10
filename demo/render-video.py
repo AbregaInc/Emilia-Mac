@@ -1,30 +1,30 @@
 """Assemble a 60 s demo from real recordings and original OpenAI narration."""
 import json
 import subprocess
+import sys
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from storyboard import STORY
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "dist/demo"
 FONT = "/System/Library/Fonts/Supplemental/Arial.ttf"
 
-SEGMENTS = [
-    ("intro", 8, "v8-final-take.mov", 0),
-    ("amber", 8, "v8-final-take.mov", 8),
-    ("caller", 10, "v8-family-take.mov", 2),
-    ("warning", 14, "v8-family-take.mov", 13),
-    ("options", 8, "v8-settings-take.mov", 0),
-    ("outro", 12, "v8-outro-take.mov", 0),
-]
-AUDIO = {"amber": "amber-system.wav", "caller": "caller-system.wav"}
-CAPTIONS = {
-    "intro": ["Emilia gives you a second opinion on a call.", "First, listen to a harmless automated reminder."],
-    "amber": ["SIMULATED CALLER: This is an automated reminder.", "Your appointment is tomorrow at ten. No action is needed.", "Have a wonderful day."],
-    "caller": ["SIMULATED CALLER: Mom, it’s your daughter. This is my new phone number.", "I wanted to talk with you about our family."],
-    "warning": ["Amber means synthetic voice evidence, without blocking your clicks.", "OpenAI Realtime captures the words.", "GPT-6 Astra combines the claimed family identity with recent voice evidence,", "and asks you to verify. The context changed the warning."],
-    "options": ["Local OpenAI Whisper is also available.", "Voice detection stays on this Mac.", "Astra receives text and a bounded evidence summary."],
-    "outro": ["Built with GPT-6 Astra in Codex.", "Narrated using OpenAI speech generation.", "Emilia: a second opinion before a costly mistake."],
-}
+SEGMENTS = [row[:4] for row in STORY]
+AUDIO = {"caller": "caller-system.wav"}
+CAPTIONS = {row[0]: [("SIMULATED CALLER: " if row[0] == "caller" else "") + row[4].replace("GPT-six", "GPT-6")] for row in STORY}
+
+def caption_lines(text):
+    font = ImageFont.truetype(FONT, 25)
+    lines = [""]
+    for word in text.split():
+        candidate = (lines[-1] + " " + word).strip()
+        if font.getlength(candidate) > 1700:
+            lines.append(word)
+        else:
+            lines[-1] = candidate
+    return lines
 
 def run(*args):
     subprocess.run([str(a) for a in args], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
@@ -35,12 +35,27 @@ def duration(path):
 def caption_image(text, path):
     image = Image.new("RGBA", (1920, 1080))
     draw = ImageDraw.Draw(image)
-    font = ImageFont.truetype(FONT, 27)
-    box = draw.textbbox((0, 0), text, font=font)
-    width = box[2] - box[0]
+    font = ImageFont.truetype(FONT, 25)
+    lines = caption_lines(text)
+    width = max(font.getlength(line) for line in lines)
     x = (1920 - width) // 2
-    draw.rounded_rectangle((x-22, 797, x+width+22, 846), radius=10, fill=(8, 12, 10, 242))
-    draw.text((x, 806), text, font=font, fill=(246, 244, 235))
+    draw.rounded_rectangle((x-22, 797, x+width+22, 809+28*len(lines)), radius=10, fill=(8, 12, 10, 242))
+    for i,line in enumerate(lines):
+        draw.text(((1920-font.getlength(line))/2, 802+28*i), line, font=font, fill=(246, 244, 235))
+    image.save(path)
+
+def research_card(name, path):
+    image = Image.new("RGBA", (1920,1080))
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((175,185,765,740), fill=(11,13,12,255))
+    title, lines = {
+        "research": ("EMILIA AUTORESEARCH", ["OpenAI models at the helm", "Codex research workflow", "", "Plan experiments", "Run and verify", "Evaluate → iterate", "", "Existing research · predates hackathon"]),
+        "architecture": ("EMILIA v8 · ON DEVICE", ["3 seconds of audio", "↓", "4-block W2v-BERT encoder", "↓", "Router + fitted classifier heads", "↓", "Synthetic-voice evidence", "", "Seed 1 · assumed wideband"]),
+        "contribution": ("BUILT AT THE HACKATHON", ["Native macOS app", "Mic + system audio", "Realtime + Astra integration", "Amber + grounded red warnings", "", "Built using Astra in Codex", "", "Emilia research predates this event"]),
+    }[name]
+    draw.text((190,218),title,font=ImageFont.truetype(FONT,29),fill=(255,157,48))
+    for i,line in enumerate(lines):
+        draw.text((190,284+i*43),line,font=ImageFont.truetype(FONT,26),fill=(235,234,221))
     image.save(path)
 
 def main():
@@ -53,8 +68,17 @@ def main():
         print("Rendering " + name, flush=True)
         actual = duration(OUT / AUDIO.get(name, name + ".wav"))
         tempo = max(1.0, actual / (seconds - 0.3))
+        # Clip-local narration and captions start together. No word-count timing estimates.
+        assert tempo <= 1.30, (name, "Narration too long; rewrite instead of rushing", tempo)
+        card = OUT / (name + "-card.png")
+        extra = []
+        vf = "[0:v]scale=1670:1080,pad=1920:1080:125:0:color=0x0b0d0c,fps=30,setsar=1[v]"
+        if name in ("research", "architecture", "contribution"):
+            research_card(name, card)
+            extra = ["-loop", "1", "-i", card]
+            vf = vf.replace("[v]", "[base]") + ";[base][2:v]overlay=0:0[v]"
         run("ffmpeg", "-y", "-ss", start, "-i", OUT/source, "-i", OUT/AUDIO.get(name, name+".wav"),
-            "-filter_complex", f"[0:v]scale=1670:1080,pad=1920:1080:125:0:color=0x0b0d0c,fps=30,setsar=1[v];[1:a]atempo={tempo},apad,atrim=duration={seconds},loudnorm=I=-16:TP=-1.5:LRA=9[a]",
+            *extra, "-filter_complex", f"{vf};[1:a]atempo={tempo},apad,atrim=duration={seconds},loudnorm=I=-16:TP=-1.5:LRA=9[a]",
             "-map", "[v]", "-map", "[a]", "-t", seconds, "-c:v", "libx264", "-preset", "fast", "-crf", 19, "-pix_fmt", "yuv420p", "-c:a", "aac", "-ar", 48000, "-b:a", "192k", OUT/(name+"-cut.mp4"))
         lines = CAPTIONS[name]
         weights = [len(line.replace("SIMULATED CALLER: ", "").split()) for line in lines]
@@ -77,7 +101,7 @@ def main():
         "-c:v", "libx264", "-preset", "fast", "-crf", 18, "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", OUT/"Emilia-60s-demo.mp4")
     measured = duration(OUT/"Emilia-60s-demo.mp4")
     assert abs(measured - 60) < 0.04, measured
-    (OUT/"edit-receipt.json").write_text(json.dumps({"duration_seconds": measured, "segments": SEGMENTS, "narration_model": "gpt-4o-mini-tts-2025-12-15", "simulated_caller": "macOS Samantha speech", "warning": "Live Realtime/Astra response; no forced alert", "caption_timing": "Phrase timings approximated from word count", "detector": "Recovered Emilia v8, seed 1, explicit wideband assumption; controlled demo, not an accuracy or latency benchmark"}, indent=2))
+    (OUT/"edit-receipt.json").write_text(json.dumps({"duration_seconds": measured, "segments": SEGMENTS, "narration_model": "gpt-4o-mini-tts-2025-12-15", "simulated_caller": "macOS Samantha speech", "warning": "Live Realtime/Astra response; no forced alert", "caption_timing": "One caption per narration clip, aligned to its matching visible state", "research": "Existing Codex autoresearch directed by OpenAI models; informational overlays, not a recording of a research run", "detector": "Recovered Emilia v8, seed 1, explicit wideband assumption; controlled demo, not an accuracy or latency benchmark"}, indent=2))
     print("Finished: " + str(OUT/"Emilia-60s-demo.mp4"), flush=True)
 
 if __name__ == "__main__":

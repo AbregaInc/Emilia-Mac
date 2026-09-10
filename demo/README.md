@@ -27,7 +27,9 @@ warning card on the first display. It does not set a score or bypass inference.
 5. Set the observed source cuts in `render-video.py`. The current source files are
    `v8-final-take.mov`, `v8-family-take.mov`, `v8-outro-take.mov`, and
    `v8-settings-take.mov`; timestamps are editing decisions, not a
-   measured live-latency claim. Caption phrase timings are approximate.
+   measured live-latency claim. `storyboard.py` binds each narration clip to
+   one matching visible state and a whole-clip caption. Research cards explain
+   the existing model over actual app footage; they do not depict a research run.
 6. Run `python3 demo/render-video.py`, then `python3 demo/test_render_video.py`.
    Inspect the finished video and audio. Keep the exact 60-second duration.
 

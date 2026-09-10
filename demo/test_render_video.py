@@ -21,10 +21,13 @@ class DemoContractTests(unittest.TestCase):
             self.assertGreaterEqual(video.duration(video.OUT / source), start + seconds)
 
     def test_captions_fit_frame(self):
-        font = ImageFont.truetype(video.FONT, 27)
+        font = ImageFont.truetype(video.FONT, 25)
         for lines in video.CAPTIONS.values():
             for line in lines:
-                self.assertLess(font.getlength(line), 1850)
+                wrapped = video.caption_lines(line)
+                self.assertLessEqual(len(wrapped), 2)
+                for part in wrapped:
+                    self.assertLess(font.getlength(part), 1750)
 
     def test_export_is_sixty_seconds_and_decodable(self):
         path = video.OUT / "Emilia-60s-demo.mp4"
@@ -34,7 +37,7 @@ class DemoContractTests(unittest.TestCase):
     def test_real_border_and_card_share_the_recorded_display(self):
         with tempfile.TemporaryDirectory() as directory:
             frame = Path(directory) / "warning.png"
-            video.run("ffmpeg", "-y", "-ss", 28, "-i", video.OUT / "Emilia-60s-demo.mp4", "-frames:v", 1, frame)
+            video.run("ffmpeg", "-y", "-ss", 36, "-i", video.OUT / "Emilia-60s-demo.mp4", "-frames:v", 1, frame)
             image = Image.open(frame).convert("RGB")
             def warm_pixels(box):
                 return sum(r > 170 and r > g * 1.5 and r > b * 1.5 for r, g, b in image.crop(box).getdata())
@@ -44,11 +47,23 @@ class DemoContractTests(unittest.TestCase):
     def test_amber_evidence_is_visible_before_red(self):
         with tempfile.TemporaryDirectory() as directory:
             frame = Path(directory) / "amber.png"
-            video.run("ffmpeg", "-y", "-ss", 12, "-i", video.OUT / "Emilia-60s-demo.mp4", "-frames:v", 1, frame)
+            video.run("ffmpeg", "-y", "-ss", 7, "-i", video.OUT / "Emilia-60s-demo.mp4", "-frames:v", 1, frame)
             image = Image.open(frame).convert("RGB")
             pixels = list(image.crop((125, 100, 140, 900)).getdata())
             self.assertGreater(sum(r > 100 and g > 55 and r > g and g > b * 1.4 for r,g,b in pixels), 1500)
             self.assertLess(sum(r > 170 and g < 85 for r,g,b in pixels), 300, "Red must not replace benign amber")
+
+    def test_narration_matches_visible_state_and_credits_research(self):
+        story = {row[0]: row for row in video.STORY}
+        self.assertIn("Amber", story["amber"][4])
+        self.assertNotIn("Amber", story["warning"][4])
+        self.assertIn("autoresearch", story["research"][4])
+        self.assertIn("OpenAI models", story["research"][4])
+        self.assertIn("four-block", story["architecture"][4])
+        self.assertIn("predates", story["contribution"][4])
+        self.assertEqual(len(video.CAPTIONS), len(video.SEGMENTS))
+        for name, seconds, *_ in video.SEGMENTS:
+            self.assertLessEqual(video.duration(video.OUT / video.AUDIO.get(name,name+".wav")) / (seconds-.3), 1.30)
 
 if __name__ == "__main__":
     unittest.main()
