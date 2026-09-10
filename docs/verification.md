@@ -4,6 +4,35 @@ Device: Apple M1 Max, 64 GiB RAM; macOS 26.6.2; Xcode 26.6. Native arm64 build.
 
 ## Verified
 
+### Current v0.2.0 integration
+
+- Replaced the AASIST-L runtime with recovered original Emilia v8, seed 1,
+  through one persistent CPU Python worker. Canonical bundle unchanged.
+- Reference WAV and Swift PCM match route v6, human margin 0.06209803647790091
+  and artifact score 6.047003626183e-08; no synthetic flag. Unknown bandwidth
+  preserves both decisions and omits a single flag.
+- Latest enabled suite: 28 tests, one paid-API test skipped, zero failures.
+  Local Whisper and real v8 checks enabled. Separate paid Astra fusion test
+  passed family claim without voice, family claim with synthetic evidence,
+  assistive speech, benign reminder and human credential-scam cases.
+- Actual native UI: Mic and System audio reached v8 independently. Pause/restart
+  clears streams and shuts down the worker. Missing bundle, wrong response ID,
+  worker restart, incomplete windows, source reset and evidence expiry have tests.
+- Benign reminder showed amber without red. Clicking through amber opened
+  Settings. Separate family call produced a real Astra warning marked
+  “Voice + conversation · assumed wideband”. Red takes precedence.
+- Complete silent windows still go unchanged to the model but do not renew
+  evidence. Six observations/30 seconds, 10-second freshness, signed margins
+  and explicit band assumptions are sent separately from the transcript.
+- v0.2.0 Developer ID signature, notarization and stapling passed. Submission:
+  `5ae8908b-b837-42d2-aac2-06873fc12245`. ZIP SHA-256:
+  `8e97ec68a2ca7cd96d9b1948b7764f981d28e249379dc8665a7f52629e305e3c`.
+- Final demo is exactly 60 seconds. Six video checks cover source assets,
+  timeline, caption fit, full audio/video decode, amber visibility and the
+  red border/card on the same display. Edited footage visually inspected.
+
+### Earlier v0.1.1 checks (historical AASIST runtime)
+
 - Developer ID signing and strict code-signature verification pass.
 - Apple notarization accepted v0.1.1 submission `579bba2b-90b9-48fe-b44f-e042f5e3e2e4`.
   Stapling and ticket validation passed. Release ZIP SHA-256:
@@ -45,17 +74,20 @@ Device: Apple M1 Max, 64 GiB RAM; macOS 26.6.2; Xcode 26.6. Native arm64 build.
   long-session realtime reconnect and energy measurements remain manual checks.
 - The synthetic model is an external, user-authorized local demo artifact.
   Its trained-weight public redistribution rights remain separate.
-- Public release still needs a one-minute event-only video and contribution
-  attribution. Do not imply pre-existing model training occurred at the event.
+- Public v8 redistribution remains unapproved. The signed app excludes weights,
+  reference audio and Python. This Mac uses the external canonical bundle and
+  existing Python; it is not a portable detector installation.
 
 Rerun automated tests with:
 
 ```sh
 swift test
 EMILIA_TEST_WHISPER=1 swift test --filter AudioTests.testLocalWhisperPipelineTranscribesObservedAudio
+EMILIA_TEST_VOICE=1 EMILIA_TEST_WHISPER=1 swift test
+EMILIA_TEST_ASTRA_FUSION=1 swift test --filter VoiceEvidenceTests.testLiveAstraCombinedEvidence
 swift run EmiliaCheck --astra
 swift run EmiliaCheck --realtime
 ```
 
-The optional voice test also requires the external converted model and local
-controlled WAV fixture; ordinary tests skip model-dependent checks unless enabled.
+The optional voice test requires the recovered v8 bundle and reference WAV
+locally; ordinary tests skip model-dependent checks unless enabled.

@@ -18,8 +18,11 @@ final class AppModel: ObservableObject {
     @Published var elapsed: Double = 0
     @Published var apiLatency: Double?
     @Published var assessments = 0
-    @Published var voiceStatus = "Model not installed"
+    @Published var voiceStatus = "Emilia v8 · not started"
     @Published var synthetic = false
+    @Published var voiceBandwidth: VoiceBandwidth = .unknown {
+        didSet { UserDefaults.standard.set(voiceBandwidth.rawValue, forKey: "voiceBandwidth") }
+    }
     @Published var keyConfigured = false
     @Published var settingsVisible = false
     @Published var errorMessage: String?
@@ -29,8 +32,11 @@ final class AppModel: ObservableObject {
     private let voice = VoiceDetector()
     private var window = TranscriptWindow()
     private var policy = WarningPolicy()
+    private var voiceEvidence = VoiceEvidenceWindow()
+    private var lastVoiceRevision = ""
     private var sessionID = UUID()
     private var captureTask: Task<Void, Never>?
+    private var voiceTask: Task<Void, Never>?
     private var startTask: Task<Void, Never>?
     private var riskTask: Task<Void, Never>?
     private var heartbeat: Task<Void, Never>?
@@ -45,6 +51,7 @@ final class AppModel: ObservableObject {
 
     init() {
         transcriptionMode = TranscriptionMode(rawValue: UserDefaults.standard.string(forKey: "transcriptionMode") ?? "") ?? .local
+        voiceBandwidth = VoiceBandwidth(rawValue: UserDefaults.standard.string(forKey: "voiceBandwidth") ?? "") ?? .unknown
         key = Environment.readKey(); keyConfigured = !key.isEmpty
         observer = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor in self?.stop(); self?.status = "Paused for sleep — start again when ready" }
@@ -59,15 +66,29 @@ final class AppModel: ObservableObject {
         key = Environment.readKey(); keyConfigured = !key.isEmpty
         let mode = captureMode
         let transcription = transcriptionMode
+        let bandwidth = voiceBandwidth
         if transcription == .realtime && !keyConfigured { settingsVisible = true; errorMessage = "Add an API key to use OpenAI Realtime."; return }
         sessionID = UUID(); let token = sessionID
         preparing = true; errorMessage = nil; degraded = false
         status = transcription == .local ? "Loading local Whisper…" : "Connecting to OpenAI Realtime…"
         window.clear(); transcript = ""; policy = WarningPolicy(); warning = nil
+        voiceEvidence.clear(); synthetic = false; lastVoiceRevision = ""
         lastSubmitted = ""; lastSubmission = -.infinity; assessments = 0; apiLatency = nil; elapsed = 0
         startTask = Task {
             let pipeline = SpeechPipeline(mode: transcription, key: key)
             do {
+                voiceStatus = "Loading Emilia v8…"
+                status = "Loading Emilia v8…"
+                var voiceReady = false
+                do {
+                    let version = try await voice.load(); voiceReady = version != nil
+                    guard sessionID == token, !Task.isCancelled else { return }
+                    voiceStatus = version.map { "\($0) · \(bandwidth.label)" } ?? "Emilia v8 not installed"
+                } catch {
+                    guard sessionID == token, !Task.isCancelled else { return }
+                    voiceStatus = "Voice detector unavailable: \(error.localizedDescription)"
+                }
+                status = transcription == .local ? "Loading local Whisper…" : "Connecting to OpenAI Realtime…"
                 try await pipeline.prepare(onTranscript: { [weak self] segment in
                     Task { @MainActor in self?.receive(segment, token: token) }
                 }, onError: { [weak self] message in
@@ -81,41 +102,27 @@ final class AppModel: ObservableObject {
                 guard sessionID == token, !Task.isCancelled else { capture.stop(); pipeline.stop(); return }
                 speech = pipeline; epoch = ProcessInfo.processInfo.systemUptime; lastAudio = epoch
                 listening = true; preparing = false; status = "Listening · \(mode.rawValue)"
-                captureTask = Task.detached(priority: .userInitiated) { [weak self, voice] in
-                    let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 16000, channels: 1, interleaved: false)!
-                    let converter = PCMConverter(outputFormat: format)
-                    var ring = AudioRing(capacity: 16000 * 30)
-                    var lastScore = 0.0; var lastMeter = 0.0
-                    var voiceReady = false
-                    do {
-                        let version = try await voice.load(); voiceReady = version != nil
-                        await self?.setVoiceStatus(version.map { "Ready · \($0)" } ?? "Model not installed", token: token)
-                    } catch { await self?.setVoiceStatus(error.localizedDescription, token: token) }
+                captureTask = Task.detached(priority: .userInitiated) { [weak self, voiceReady] in
+                    var accumulator = VoicePCMAccumulator()
+                    var lastMeter = 0.0
                     do {
                         for await item in stream {
                             try Task.checkCancellation()
                             try pipeline.append(item)
-                            let buffer = try converter.convert(item.pcm)
-                            if let channel = buffer.floatChannelData?[0] {
-                                let samples = Array(UnsafeBufferPointer(start: channel, count: Int(buffer.frameLength)))
-                                ring.append(samples)
+                            let samples = try item.interleavedFloatPCM()
                                 let rms = sqrt(samples.reduce(Float(0)) { $0 + $1 * $1 } / Float(max(1, samples.count)))
                                 if item.time - lastMeter >= 0.1 {
                                     lastMeter = item.time
                                     await self?.meter(rms, token: token, dropped: pipeline.dropped)
                                 }
-                                if voiceReady, item.time - lastScore >= 5, ring.count >= 80000, rms > 0.003 {
-                                    lastScore = item.time
-                                    if let result = try await voice.score(ring.suffix(80000)) {
-                                        await self?.voiceResult(result, token: token)
-                                    }
+                                if voiceReady {
+                                    let windows = accumulator.append(samples, sampleRate: Int(item.pcm.format.sampleRate), channels: Int(item.pcm.format.channelCount), start: item.time, source: mode.rawValue)
+                                    for window in windows { await self?.scheduleVoice(window, bandwidth: bandwidth, token: token) }
                                 }
-                            }
                         }
                     } catch {
                         if !Task.isCancelled { await self?.captureFailed(error.localizedDescription, token: token) }
                     }
-                    ring.clear()
                 }
                 heartbeat = Task {
                     while !Task.isCancelled {
@@ -123,6 +130,7 @@ final class AppModel: ObservableObject {
                         guard sessionID == token, listening, !Task.isCancelled else { return }
                         let now = ProcessInfo.processInfo.systemUptime
                         elapsed = now - epoch; window.prune(at: elapsed); transcript = window.text
+                        refreshVoiceEvidence(at: elapsed)
                         if now - lastAudio > 8 { degraded = true; status = "No audio arriving — check playback and permission" }
                         submitIfNeeded(token: token, source: mode.rawValue)
                     }
@@ -148,36 +156,78 @@ final class AppModel: ObservableObject {
         else if degraded && errorMessage == nil { degraded = false; status = "Listening" }
     }
     private func setVoiceStatus(_ value: String, token: UUID) { guard sessionID == token else { return }; voiceStatus = value }
-    private func voiceResult(_ result: (Double, Bool), token: UUID) {
+    private func scheduleVoice(_ window: VoicePCMWindow, bandwidth: VoiceBandwidth, token: UUID) {
+        guard sessionID == token, listening, voiceTask == nil else { return }
+        voiceTask = Task {
+            defer { if sessionID == token { voiceTask = nil } }
+            do {
+                let result = try await voice.score(window, bandwidth: bandwidth)
+                guard window.hasSignal else {
+                    if sessionID == token { refreshVoiceEvidence(at: ProcessInfo.processInfo.systemUptime - epoch) }
+                    return
+                }
+                voiceResult(result, audioEnd: window.end, token: token)
+            } catch {
+                guard sessionID == token, listening else { return }
+                voiceEvidence.clear(); synthetic = false
+                voiceStatus = "Voice detector unavailable: \(error.localizedDescription)"
+                refreshVoiceEvidence(at: elapsed)
+            }
+        }
+    }
+    private func voiceResult(_ result: VoiceModelResult, audioEnd: Double, token: UUID) {
         guard sessionID == token, listening else { return }
-        synthetic = result.1
-        voiceStatus = result.1 ? "Synthetic voice evidence" : "No synthetic flag in latest window"
+        voiceEvidence.append(result, audioEnd: audioEnd)
+        refreshVoiceEvidence(at: max(audioEnd, ProcessInfo.processInfo.systemUptime - epoch))
+        if result.bandwidth == .unknown {
+            let wide = result.bandwidthDecisions["wideband"]?.syntheticFlag == true ? "flag" : "no flag"
+            let narrow = result.bandwidthDecisions["narrowband"]?.syntheticFlag == true ? "flag" : "no flag"
+            voiceStatus = "Emilia v8 · bandwidth unknown · wide: \(wide), narrow: \(narrow)"
+        } else {
+            voiceStatus = "Emilia v8 · \(result.bandwidth.label) · " + (synthetic ? "Synthetic voice evidence" : "No synthetic flag in latest window")
+        }
+    }
+    private func refreshVoiceEvidence(at now: Double) {
+        let summary = voiceEvidence.summary(at: now)
+        synthetic = summary?.supportsSynthetic == true
+        if summary == nil && voiceStatus.contains("Synthetic voice evidence") { voiceStatus = "Emilia v8 · waiting for fresh voice evidence" }
+        if warning?.assessment.usesVoiceEvidence == true && !synthetic { warning = nil; onDismiss?() }
     }
     private func captureFailed(_ message: String, token: UUID) {
         guard sessionID == token else { return }; stop(); errorMessage = message; status = "Audio processing unavailable"
     }
     private func submitIfNeeded(token: UUID, source: String) {
         guard keyConfigured else { errorMessage = "Whisper is listening locally. Add an API key for scam analysis."; return }
-        guard riskTask == nil, transcript.count >= 20, transcript != lastSubmitted,
+        let summary = voiceEvidence.summary(at: elapsed)
+        let voiceRevision = summary?.revision ?? ""
+        guard riskTask == nil, transcript.count >= 20, transcript != lastSubmitted || voiceRevision != lastVoiceRevision,
               elapsed - lastSubmission >= 3 else { return }
         // Absolute request ceiling for a single listening session; no unbounded paid background loop.
         guard assessments < 120 else { stop(); status = "Session analysis limit reached — restart to continue"; return }
         let snapshot = transcript
         let start = window.segments.first?.start ?? 0, end = window.segments.last?.end ?? elapsed
         lastSubmitted = snapshot; lastSubmission = elapsed; assessments += 1
+        lastVoiceRevision = voiceRevision
         riskTask = Task {
             let began = ProcessInfo.processInfo.systemUptime
             defer { if sessionID == token { riskTask = nil } }
             do {
-                let result = try await AstraClient().assess(transcript: snapshot, key: key)
+                let result = try await AstraClient().assess(transcript: snapshot, key: key, voiceEvidence: summary)
                 guard sessionID == token, listening, !Task.isCancelled else { return }
                 apiLatency = ProcessInfo.processInfo.systemUptime - began
                 errorMessage = nil
+                if result.usesVoiceEvidence == true {
+                    guard let summary, summary.supportsSynthetic, summary.observationCount >= 2,
+                          voiceEvidence.summary(at: ProcessInfo.processInfo.systemUptime - epoch)?.supportsSynthetic == true,
+                          ProcessInfo.processInfo.systemUptime - epoch - summary.latestAudioEnd <= 10 else { return }
+                    let recentText = window.segments.filter { $0.end >= summary.latestAudioEnd - 30 }.map(\.text).joined(separator: " ")
+                    guard WarningPolicy.grounded(result, in: recentText) else { return }
+                }
                 // Reject invented evidence, ASR-retracted quotes and answers that have become stale.
                 guard elapsed - end <= 30, WarningPolicy.grounded(result, in: snapshot),
                       WarningPolicy.grounded(result, in: transcript) else { return }
                 if policy.consider(result, transcript: transcript, now: elapsed) {
-                    let evidence = WarningEvidence(assessment: result, audioStart: start, audioEnd: end, source: source, modelVersion: AstraClient.model)
+                    let evidence = WarningEvidence(assessment: result, audioStart: start, audioEnd: end, source: source, modelVersion: AstraClient.model, voiceEvidence: summary)
                     warning = evidence; onWarning?(evidence)
                 }
             } catch {
@@ -194,9 +244,11 @@ final class AppModel: ObservableObject {
         startTask?.cancel(); startTask = nil; heartbeat?.cancel(); heartbeat = nil
         riskTask?.cancel(); riskTask = nil
         capture.stop(); captureTask?.cancel(); captureTask = nil
+        voiceTask?.cancel(); voiceTask = nil; voice.stop()
         speech?.stop(); speech = nil
         listening = false; preparing = false; level = 0; status = "Paused"
         window.clear(); transcript = ""; lastSubmitted = ""; warning = nil; synthetic = false
+        voiceEvidence.clear(); lastVoiceRevision = ""; voiceStatus = "Voice detection paused"
         onDismiss?()
     }
 }

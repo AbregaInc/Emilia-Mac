@@ -15,9 +15,9 @@ struct Backdrop: View {
             }.padding(.leading, 65).padding(.top, 200)
             VStack(alignment: .leading, spacing: 12) {
                 Text("OPENAI REALTIME  →  GPT-6 ASTRA  →  WARNING").font(.system(size: 18, weight: .semibold, design: .monospaced))
-                Text("Also: local OpenAI Whisper · Built with Astra in Codex · AI voices: OpenAI speech API").font(.system(size: 16)).foregroundStyle(.white.opacity(0.65))
+                Text("Local OpenAI Whisper · Built with Astra in Codex · Narration: OpenAI speech API · Simulated caller: macOS speech").font(.system(size: 16)).foregroundStyle(.white.opacity(0.65))
                 Text("Hackathon: native Mac app + live integrations. Pretrained models and Emilia research predate the event.").font(.system(size: 13)).foregroundStyle(.white.opacity(0.45))
-                Text("Current voice detector: AASIST-L placeholder. Emilia research detector integration pending. Edited demo; not a latency benchmark.").font(.system(size: 13)).foregroundStyle(.white.opacity(0.45))
+                Text("Emilia v8 · seed 1 · local CPU · explicit wideband assumption. Edited simulated calls; not an accuracy or latency benchmark.").font(.system(size: 13)).foregroundStyle(.white.opacity(0.45))
             }.padding(.leading, 65).padding(.top, 895)
         }.foregroundStyle(Color(red: 0.94, green: 0.93, blue: 0.88))
     }

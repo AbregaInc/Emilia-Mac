@@ -55,15 +55,23 @@ final class AudioTests: XCTestCase {
     func testVoiceModelLoadsAndScoresActualLocalAudio() async throws {
         guard ProcessInfo.processInfo.environment["EMILIA_TEST_VOICE"] == "1" else { throw XCTSkip("Opt-in external model check") }
         let detector = VoiceDetector()
+        defer { detector.stop() }
         let version = try await detector.load()
         XCTAssertNotNil(version)
-        let file = try AVAudioFile(forReading: URL(fileURLWithPath: "/tmp/emilia-scam.wav"))
-        let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: 80000)!
-        try file.read(into: buffer, frameCount: 80000)
-        let audio = Array(UnsafeBufferPointer(start: buffer.floatChannelData![0], count: 80000))
-        let score = try await detector.score(audio)
-        XCTAssertNotNil(score)
-        print("Local controlled synthetic sample: score=\(score!.0), flagged=\(score!.1)")
-        XCTAssertTrue(score!.0.isFinite)
+        let file = try AVAudioFile(forReading: VoiceDetector.directory.appending(path: "reference.wav"))
+        let frames = AVAudioFrameCount(file.processingFormat.sampleRate * 3)
+        let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: frames)!
+        try file.read(into: buffer, frameCount: frames)
+        let pcm = try CapturedBuffer(pcm: buffer, time: 0).interleavedFloatPCM()
+        let window = VoicePCMWindow(samples: pcm, sampleRate: Int(buffer.format.sampleRate), channels: Int(buffer.format.channelCount), end: 3)
+        let result = try await detector.score(window, bandwidth: .wideband)
+        XCTAssertEqual(result.humanMargin!, 0.06209803647790091, accuracy: 1e-8)
+        XCTAssertEqual(result.artifactScore, 6.047003626183e-08, accuracy: 1e-10)
+        XCTAssertEqual(result.route, "v6"); XCTAssertEqual(result.syntheticFlag, false)
+        let unknown = try await detector.score(window, bandwidth: .unknown)
+        XCTAssertNil(unknown.syntheticFlag); XCTAssertNil(unknown.humanMargin)
+        XCTAssertEqual(unknown.bandwidthDecisions.count, 2)
+        detector.stop()
+        do { _ = try await detector.score(window, bandwidth: .wideband); XCTFail("Stopped worker accepted audio") } catch {}
     }
 }

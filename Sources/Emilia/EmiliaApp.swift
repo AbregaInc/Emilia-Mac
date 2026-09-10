@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = AppModel()
     private var statusItem: NSStatusItem!
     private var overlay = WarningOverlay()
+    private var voiceGlow = VoiceGlow()
     private var subscription: AnyCancellable?
     private var mainWindow: NSWindow?
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -30,12 +31,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.button?.target = self; statusItem.button?.action = #selector(toggle)
         statusItem.button?.toolTip = "Emilia — a second opinion for what you hear"
         model.onWarning = { [weak self] evidence in
+            self?.voiceGlow.hide()
             self?.overlay.show(evidence: evidence, dismiss: { [weak self] in self?.model.dismissWarning() })
         }
         model.onDismiss = { [weak self] in self?.overlay.hide() }
         subscription = model.objectWillChange.sink { [weak self] in
             DispatchQueue.main.async {
                 guard let self else { return }
+                self.voiceGlow.update(listening: self.model.listening, synthetic: self.model.synthetic, scamWarning: self.model.warning != nil)
                 self.statusItem.button?.contentTintColor = self.model.warning != nil ? .systemRed : self.model.listening ? .systemOrange : nil
                 self.statusItem.button?.toolTip = "Emilia · \(self.model.status)"
             }
@@ -113,7 +116,7 @@ struct EmiliaView: View {
                 Text("ON YOUR SIDE").font(.system(size: 9, weight: .semibold, design: .monospaced)).tracking(2).foregroundStyle(Palette.muted)
                 Button { model.settingsVisible.toggle() } label: { Image(systemName: "gearshape").font(.system(size: 14)) }.buttonStyle(.plain).help("Settings")
             }
-            if model.settingsVisible { settings }
+            if model.settingsVisible { ScrollView { settings }.frame(height: 470) }
             else {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(model.warning != nil ? "Pause before\nyou act." : model.listening ? "A second ear.\nA little more clarity." : "Some calls deserve\na second opinion.")
@@ -219,7 +222,14 @@ struct EmiliaView: View {
             }
             if model.listening || model.preparing { Text("Pause listening to change transcription.").font(.system(size: 10)).foregroundStyle(Palette.muted) }
             Text("Astra analyzes transcript excerpts in either mode.").font(.system(size: 12))
-            Text("Voice-origin evidence is separate from scam warnings. A synthetic voice alone never triggers a red alert.").font(.system(size: 12)).foregroundStyle(Palette.muted)
+            Text("EMILIA V8 · BANDWIDTH ASSUMPTION").font(.system(size: 10, weight: .semibold, design: .monospaced))
+            ForEach(VoiceBandwidth.allCases, id: \.self) { bandwidth in
+                Button { model.voiceBandwidth = bandwidth } label: {
+                    Label(bandwidth.label, systemImage: model.voiceBandwidth == bandwidth ? "largecircle.fill.circle" : "circle")
+                }.font(.system(size: 12)).buttonStyle(.plain).disabled(model.listening || model.preparing)
+            }
+            Text("Capture rate does not reveal call bandwidth. Unknown keeps both decisions; assumptions are for this local demo.").font(.system(size: 10)).foregroundStyle(Palette.muted)
+            Text("Recent voice evidence helps Astra assess impersonation. Amber means synthetic-voice evidence; red requires suspicious conversation. Neither proves identity.").font(.system(size: 12)).foregroundStyle(Palette.muted)
             if let latency = model.apiLatency { Text(String(format: "Last Astra response: %.1fs · %d requests", latency, model.assessments)).font(.system(size: 11, design: .monospaced)) }
             Button("Done") { model.settingsVisible = false }.buttonStyle(.borderedProminent).tint(Palette.accent)
         }
@@ -241,7 +251,8 @@ final class WarningOverlay {
             window.orderFrontRegardless(); borders.append(window)
         }
         guard let screen = CommandLine.arguments.contains("--demo-layout") ? NSScreen.screens.first : NSScreen.main else { return }
-        let frame = NSRect(x: screen.visibleFrame.maxX - 412, y: screen.visibleFrame.maxY - 278, width: 390, height: 250)
+        let height: CGFloat = evidence.assessment.usesVoiceEvidence == true ? 300 : 250
+        let frame = NSRect(x: screen.visibleFrame.maxX - 412, y: screen.visibleFrame.maxY - height - 28, width: 390, height: height)
         let panel = NSPanel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.isOpaque = false; panel.backgroundColor = .clear; panel.hasShadow = true
         panel.level = .statusBar; panel.isFloatingPanel = true; panel.hidesOnDeactivate = false
@@ -274,6 +285,10 @@ struct WarningCard: View {
                 Button(action: dismiss) { Image(systemName: "xmark") }.buttonStyle(.plain).help("Dismiss warning")
             }
             Text("Pause before you act.").font(.system(size: 27, design: .serif))
+            if evidence.assessment.usesVoiceEvidence == true {
+                Text("Voice + conversation · assumed \(evidence.voiceEvidence?.bandwidth.rawValue ?? "unknown")")
+                    .font(.system(size: 10, weight: .medium)).foregroundStyle(Palette.accent)
+            }
             Text(evidence.assessment.reason).font(.system(size: 13, weight: .medium)).fixedSize(horizontal: false, vertical: true)
             Text("“\(evidence.assessment.quotes.joined(separator: "” · “"))”").font(.system(size: 11)).foregroundStyle(Palette.muted).lineLimit(3)
             Text("Verify through a contact method you already trust.").font(.system(size: 12)).foregroundStyle(Palette.accent)

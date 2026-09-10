@@ -47,8 +47,10 @@ public struct RiskAssessment: Codable, Equatable, Sendable {
     public var category: RiskCategory
     public var reason: String
     public var quotes: [String]
-    public init(warning: Bool, category: RiskCategory, reason: String, quotes: [String]) {
+    public var usesVoiceEvidence: Bool?
+    public init(warning: Bool, category: RiskCategory, reason: String, quotes: [String], usesVoiceEvidence: Bool = false) {
         self.warning = warning; self.category = category; self.reason = reason; self.quotes = quotes
+        self.usesVoiceEvidence = usesVoiceEvidence
     }
 }
 
@@ -60,14 +62,16 @@ public struct WarningEvidence: Identifiable, Equatable, Sendable {
     public let emittedAt: Date
     public let source: String
     public let modelVersion: String
-    public let policyVersion = "emilia-warning-v1"
-    public init(assessment: RiskAssessment, audioStart: Double, audioEnd: Double, source: String, modelVersion: String) {
+    public let voiceEvidence: VoiceEvidenceSummary?
+    public let policyVersion = "emilia-warning-v2"
+    public init(assessment: RiskAssessment, audioStart: Double, audioEnd: Double, source: String, modelVersion: String, voiceEvidence: VoiceEvidenceSummary? = nil) {
         id = UUID(); self.assessment = assessment; self.audioStart = audioStart; self.audioEnd = audioEnd
         self.source = source; self.modelVersion = modelVersion; emittedAt = Date()
+        self.voiceEvidence = voiceEvidence
     }
 }
 
-/// Only conversational evidence can trigger a red warning. Voice scores have no input here.
+/// Red warnings always require grounded conversational evidence, even when voice evidence contributes.
 public struct WarningPolicy: Sendable {
     private var seen: Set<RiskCategory> = []
     private var lastAlert: Double = -.infinity

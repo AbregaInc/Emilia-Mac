@@ -17,20 +17,22 @@ warning card on the first display. It does not set a score or bypass inference.
 2. Compile the clean background with `swiftc demo/Backdrop.swift -o /tmp/emilia-demo-backdrop`
    and run it. Launch the signed app with `--demo-layout` and the ordinary local
    configuration paths from `scripts/run.sh`.
-3. Use native CUA to choose Realtime in Settings, return, select System audio,
+3. Use native CUA to choose Realtime and explicitly Assume wideband in Settings, return, select System audio,
    and start listening. Record display 1 with `screencapture -v -V 55 -D 1 PATH.mov`.
-   Play only `dist/demo/caller.wav`; keep unrelated system audio silent.
+   Play `amber-system.wav` twice for the reminder, then pause/restart to clear
+   the call before playing `caller-system.wav` twice. Keep unrelated audio silent.
+   Caller voices use macOS Samantha; OpenAI narration is added only afterward.
 4. Verify the actual warning, hold it, then pause listening and show Settings.
    Preserve the full clean takes locally. Never use a take containing a real call.
 5. Set the observed source cuts in `render-video.py`. The current source files are
-   `final-take.mov` and `clean-take.mov`; timestamps are editing decisions, not a
+   `v8-final-take.mov`, `v8-family-take.mov`, `v8-outro-take.mov`, and
+   `v8-settings-take.mov`; timestamps are editing decisions, not a
    measured live-latency claim. Caption phrase timings are approximate.
 6. Run `python3 demo/render-video.py`, then `python3 demo/test_render_video.py`.
    Inspect the finished video and audio. Keep the exact 60-second duration.
 
-The current video identifies AASIST-L as a temporary detector and the Emilia
-research integration as pending. After the model handoff, update that disclosure,
-record actual behavior again, and regenerate the movie. Do not imply pretrained
+The current video uses recovered Emilia v8, seed 1, CPU, with an explicit
+wideband assumption. No weights or reference audio ship publicly. Do not imply pretrained
 weights or pre-existing research were created at the hackathon.
 
 OpenAI speech generation reference:

@@ -60,7 +60,7 @@ stops the session visibly; there is no silent cloud/local fallback.
 
 - **On the Mac:** audio capture; bounded PCM buffers; Whisper base.en through
   pinned whisper.cpp with Metal acceleration; evidence validation; warning
-  suppression; UI; optional local Core ML voice-origin model.
+  suppression; UI; recovered Emilia v8 via a persistent local CPU Python worker.
 - **OpenAI API:** optional realtime audio transcription; `gpt-6-astra` Responses API, low reasoning effort, strict JSON
   schema, `store: false`. At most 6,000 transcript characters / 120 seconds of
   context, one request at a time, minimum three-second cadence. API requests
@@ -82,22 +82,38 @@ quotes retracted from the current transcript cannot trigger new warnings.
 
 ## Voice-origin evidence
 
-Synthetic speech alone never triggers a scam warning. The warning policy does
-not accept a voice score. A human scam can warn; a benign synthetic reminder
-should not warn just because it is synthetic.
+The actual original promotion-v8 recovery replaces AASIST-L. Seed 1 is the
+first preregistered seed. One persistent worker verifies bundle checksums and
+scores nonoverlapping three-second PCM windows, preserving leading silence.
+It receives the original capture rate/channels and handles averaging and
+resampling itself. Capture modes never share a buffer. At most one inference
+is pending; complete windows arriving while busy are dropped rather than queued.
 
-An optional Core ML model is loaded from
-`~/Library/Application Support/Emilia/VoiceModel/manifest.json` (or the explicit
-`EMILIA_VOICE_MODEL_DIR` override). It must expose one `audio` float waveform
-input shaped `[1, 80000]`, at 16 kHz, and one scalar synthetic score. The
-manifest pins the model checksum, input/output names, threshold and permission
-record. No model installed means **Model not installed**, never a fake score.
+Configure the external bundle at `~/Library/Application Support/Emilia/VoiceModel-v8`
+and the existing Python executable at `~/Library/Application Support/Emilia/VoiceModel-v8-python`
+(symlinks are supported), or use `EMILIA_V8_BUNDLE` and `EMILIA_V8_PYTHON`.
+No dependencies are installed into the shared Python environment by this app.
+The model and research-only reference WAV are not bundled or redistributed.
 
-`scripts/convert-aasist.py` converts an explicitly supplied AASIST-L source and
-checkpoint and checks Core ML/PyTorch agreement on three fixed random inputs.
-This is conversion parity, not detection accuracy. Its 0.5 demo threshold is
-uncalibrated. The local demo may use this user-authorized external artifact;
-public checkpoint redistribution remains separate from the source license.
+Settings defaults to **Unknown bandwidth**, showing both historical decisions
+without a single flag. **Assume wideband/narrowband** explicitly selects an
+unvalidated live-bandwidth assumption; capture rate cannot determine it.
+A negative human margin flags synthetic evidence. Margins are not probabilities;
+the artifact score only selects the route and is never sent as scam evidence.
+
+Amber edges are click-through, do not take keyboard focus, and yield to red.
+The latest six observations within 30 seconds summarize recent evidence, expiring
+after ten seconds without a fresh result. Digitally silent windows are still
+scored unchanged but do not renew user-facing voice evidence. This smoothing and
+signal-quality behavior is product policy, not a validated detection benchmark.
+
+Astra receives signed-margin summaries, counts, freshness and explicit bandwidth
+alongside the transcript. Synthetic evidence alone cannot justify red. Recent
+repeated flags can strengthen an explicit family-identity claim, with uncertainty
+about speaker attribution. Disclosed assistive voices and benign reminders should
+not warn; human scams can warn without voice evidence. Every red warning still
+requires exact transcript quotes. Voice-dependent warnings require at least two
+observations and fresh supporting evidence; stale evidence retracts them.
 
 ## Verify
 
@@ -132,9 +148,10 @@ The API key and voice-origin checkpoint are not bundled.
 
 This standalone repository contains the Mac capture/UI, local Whisper bridge,
 Astra integration, grounding policy, lifecycle controls, checks and packaging
-built for the hackathon. OpenAI Whisper, whisper.cpp and any supplied AASIST
-checkpoint are pre-existing components, clearly attributed. Emilia's research
-workspace is not included and is not needed to build this app.
+built for the hackathon. OpenAI Whisper, whisper.cpp and the recovered Emilia v8
+detector are pre-existing components, clearly attributed. Emilia's research
+workspace is not included and is not needed to build the app; its external
+recovered inference bundle is required to run voice detection locally.
 
 The warning is a second opinion, not a finding of fraud or proof that an
 unflagged call is safe. No blocking, automatic hangup or identity verification

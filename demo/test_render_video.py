@@ -17,7 +17,7 @@ class DemoContractTests(unittest.TestCase):
             self.assertTrue(video.CAPTIONS[name])
             self.assertGreater(seconds, 0)
             self.assertGreaterEqual(start, 0)
-            self.assertTrue((video.OUT / (name + ".wav")).is_file())
+            self.assertTrue((video.OUT / video.AUDIO.get(name, name + ".wav")).is_file())
             self.assertGreaterEqual(video.duration(video.OUT / source), start + seconds)
 
     def test_captions_fit_frame(self):
@@ -40,6 +40,15 @@ class DemoContractTests(unittest.TestCase):
                 return sum(r > 170 and r > g * 1.5 and r > b * 1.5 for r, g, b in image.crop(box).getdata())
             self.assertGreater(warm_pixels((125, 100, 135, 900)), 2500, "Red screen border missing")
             self.assertGreater(warm_pixels((1390, 50, 1790, 280)), 400, "Warning card missing from recording display")
+
+    def test_amber_evidence_is_visible_before_red(self):
+        with tempfile.TemporaryDirectory() as directory:
+            frame = Path(directory) / "amber.png"
+            video.run("ffmpeg", "-y", "-ss", 12, "-i", video.OUT / "Emilia-60s-demo.mp4", "-frames:v", 1, frame)
+            image = Image.open(frame).convert("RGB")
+            pixels = list(image.crop((125, 100, 140, 900)).getdata())
+            self.assertGreater(sum(r > 100 and g > 55 and r > g and g > b * 1.4 for r,g,b in pixels), 1500)
+            self.assertLess(sum(r > 170 and g < 85 for r,g,b in pixels), 300, "Red must not replace benign amber")
 
 if __name__ == "__main__":
     unittest.main()

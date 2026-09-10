@@ -9,18 +9,21 @@ OUT = ROOT / "dist/demo"
 FONT = "/System/Library/Fonts/Supplemental/Arial.ttf"
 
 SEGMENTS = [
-    ("intro", 11, "final-take.mov", 0),
-    ("caller", 10, "final-take.mov", 13.72),
-    ("warning", 14, "final-take.mov", 23.72),
-    ("options", 12, "clean-take.mov", 52),
-    ("outro", 13, "final-take.mov", 29),
+    ("intro", 8, "v8-final-take.mov", 0),
+    ("amber", 8, "v8-final-take.mov", 8),
+    ("caller", 10, "v8-family-take.mov", 2),
+    ("warning", 14, "v8-family-take.mov", 13),
+    ("options", 8, "v8-settings-take.mov", 0),
+    ("outro", 12, "v8-outro-take.mov", 0),
 ]
+AUDIO = {"amber": "amber-system.wav", "caller": "caller-system.wav"}
 CAPTIONS = {
-    "intro": ["A convincing voice can ask you to make a costly mistake.", "Emilia gives you a second opinion, while the call is happening.", "Here’s the real Mac app, listening to a simulated call."],
-    "caller": ["SIMULATED CALLER: Hello, this is your bank’s security department.", "Please read me the six-digit login verification code you just received.", "Keep this call secret. Do not contact your bank."],
-    "warning": ["OpenAI Realtime transcribes the call.", "GPT-6 Astra spots the request to share a login code,", "and explains the warning using the caller’s own words.", "The red border asks you to pause before you act."],
-    "options": ["Choose local OpenAI Whisper or cloud Realtime transcription.", "Astra analyzes the text in either mode.", "Voice-origin evidence stays separate:", "a synthetic voice alone never triggers red."],
-    "outro": ["Built with GPT-6 Astra in Codex:", "native audio capture, live transcription, and evidence-backed warnings.", "Even these demo voices use OpenAI speech generation.", "Emilia. A second opinion before a costly mistake."],
+    "intro": ["Emilia gives you a second opinion on a call.", "First, listen to a harmless automated reminder."],
+    "amber": ["SIMULATED CALLER: This is an automated reminder.", "Your appointment is tomorrow at ten. No action is needed.", "Have a wonderful day."],
+    "caller": ["SIMULATED CALLER: Mom, it’s your daughter. This is my new phone number.", "I wanted to talk with you about our family."],
+    "warning": ["Amber means synthetic voice evidence, without blocking your clicks.", "OpenAI Realtime captures the words.", "GPT-6 Astra combines the claimed family identity with recent voice evidence,", "and asks you to verify. The context changed the warning."],
+    "options": ["Local OpenAI Whisper is also available.", "Voice detection stays on this Mac.", "Astra receives text and a bounded evidence summary."],
+    "outro": ["Built with GPT-6 Astra in Codex.", "Narrated using OpenAI speech generation.", "Emilia: a second opinion before a costly mistake."],
 }
 
 def run(*args):
@@ -48,9 +51,9 @@ def main():
     subtitle_index = 1
     for name, seconds, source, start in SEGMENTS:
         print("Rendering " + name, flush=True)
-        actual = duration(OUT / (name + ".wav"))
+        actual = duration(OUT / AUDIO.get(name, name + ".wav"))
         tempo = max(1.0, actual / (seconds - 0.3))
-        run("ffmpeg", "-y", "-ss", start, "-i", OUT/source, "-i", OUT/(name+".wav"),
+        run("ffmpeg", "-y", "-ss", start, "-i", OUT/source, "-i", OUT/AUDIO.get(name, name+".wav"),
             "-filter_complex", f"[0:v]scale=1670:1080,pad=1920:1080:125:0:color=0x0b0d0c,fps=30,setsar=1[v];[1:a]atempo={tempo},apad,atrim=duration={seconds},loudnorm=I=-16:TP=-1.5:LRA=9[a]",
             "-map", "[v]", "-map", "[a]", "-t", seconds, "-c:v", "libx264", "-preset", "fast", "-crf", 19, "-pix_fmt", "yuv420p", "-c:a", "aac", "-ar", 48000, "-b:a", "192k", OUT/(name+"-cut.mp4"))
         lines = CAPTIONS[name]
@@ -74,7 +77,7 @@ def main():
         "-c:v", "libx264", "-preset", "fast", "-crf", 18, "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", OUT/"Emilia-60s-demo.mp4")
     measured = duration(OUT/"Emilia-60s-demo.mp4")
     assert abs(measured - 60) < 0.04, measured
-    (OUT/"edit-receipt.json").write_text(json.dumps({"duration_seconds": measured, "segments": SEGMENTS, "voice_model": "gpt-4o-mini-tts-2025-12-15", "warning": "Live Realtime/Astra response; no forced alert", "caption_timing": "Phrase timings approximated from word count", "detector": "AASIST-L placeholder; Emilia integration pending"}, indent=2))
+    (OUT/"edit-receipt.json").write_text(json.dumps({"duration_seconds": measured, "segments": SEGMENTS, "narration_model": "gpt-4o-mini-tts-2025-12-15", "simulated_caller": "macOS Samantha speech", "warning": "Live Realtime/Astra response; no forced alert", "caption_timing": "Phrase timings approximated from word count", "detector": "Recovered Emilia v8, seed 1, explicit wideband assumption; controlled demo, not an accuracy or latency benchmark"}, indent=2))
     print("Finished: " + str(OUT/"Emilia-60s-demo.mp4"), flush=True)
 
 if __name__ == "__main__":

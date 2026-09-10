@@ -24,6 +24,22 @@ enum CaptureError: LocalizedError {
 struct CapturedBuffer: @unchecked Sendable {
     let pcm: AVAudioPCMBuffer
     let time: Double
+    func interleavedFloatPCM() throws -> [Float] {
+        let channels = Int(pcm.format.channelCount), frames = Int(pcm.frameLength)
+        guard channels > 0 else { throw CaptureError.format }
+        var output = [Float](repeating: 0, count: frames * channels)
+        for frame in 0..<frames { for channel in 0..<channels {
+            let plane = pcm.format.isInterleaved ? 0 : channel
+            let index = pcm.format.isInterleaved ? frame * channels + channel : frame
+            switch pcm.format.commonFormat {
+            case .pcmFormatFloat32: output[frame * channels + channel] = pcm.floatChannelData![plane][index]
+            case .pcmFormatInt16: output[frame * channels + channel] = Float(pcm.int16ChannelData![plane][index]) / 32768
+            case .pcmFormatInt32: output[frame * channels + channel] = Float(pcm.int32ChannelData![plane][index]) / 2147483648
+            default: throw CaptureError.format
+            }
+        } }
+        return output
+    }
 }
 
 final class AudioCapture {
