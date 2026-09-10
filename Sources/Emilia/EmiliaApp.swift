@@ -78,6 +78,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             window.isReleasedWhenClosed = false
             window.contentView = host
             window.center()
+            // Presentation-only layout: inference and capture use the normal path.
+            if CommandLine.arguments.contains("--demo-layout"), let screen = NSScreen.screens.first {
+                window.setFrameOrigin(NSPoint(x: screen.frame.minX + 740, y: screen.frame.maxY - window.frame.height - 170))
+                window.level = .floating
+            }
             mainWindow = window
         }
         mainWindow?.makeKeyAndOrderFront(nil)
@@ -235,7 +240,7 @@ final class WarningOverlay {
             window.contentView = NSHostingView(rootView: BorderWash())
             window.orderFrontRegardless(); borders.append(window)
         }
-        guard let screen = NSScreen.main else { return }
+        guard let screen = CommandLine.arguments.contains("--demo-layout") ? NSScreen.screens.first : NSScreen.main else { return }
         let frame = NSRect(x: screen.visibleFrame.maxX - 412, y: screen.visibleFrame.maxY - 278, width: 390, height: 250)
         let panel = NSPanel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.isOpaque = false; panel.backgroundColor = .clear; panel.hasShadow = true
