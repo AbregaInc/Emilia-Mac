@@ -5,11 +5,15 @@ Device: Apple M1 Max, 64 GiB RAM; macOS 26.6.2; Xcode 26.6. Native arm64 build.
 ## Verified
 
 - Developer ID signing and strict code-signature verification pass.
-- Apple notarization accepted submission `ab7a34c2-f1ad-409a-b9db-ef56ae27fcd1`.
+- Apple notarization accepted v0.1.1 submission `579bba2b-90b9-48fe-b44f-e042f5e3e2e4`.
   Stapling and ticket validation passed. Release ZIP SHA-256:
-  `96b7cf64e40c74ecfcf18a7647c897d0d1f57601425086159fc08242ed522dc1`.
-- Full enabled test run: 17 tests, zero failures, including local Whisper and
+  `32d8e39eacc10e1a4446468460b996ee4f61d28ac53f48f1530b9247681107c9`.
+- Full enabled test run: 19 tests, zero failures, including local Whisper and
   external Core ML integration. Credential tests made no Keychain writes.
+- Native UI paste and Select All replacement verified with harmless text in
+  the secure key field; no test key was saved. Menu and status-icon configuration
+  have regression coverage. Physical menu-bar visibility remains user-dependent
+  when macOS has insufficient space for status items.
 - Dock icon and normal launch window are visible; native accessibility controls
   were inspected. This replaced an unreliable menu-bar-only launch.
 - User confirmed both microphone and all-system-audio capture work on this Mac.

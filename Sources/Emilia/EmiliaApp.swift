@@ -25,8 +25,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         print("Emilia ready. Audio capture is paused.")
         NSApp.setActivationPolicy(.regular)
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        statusItem.button?.image = NSImage(systemSymbolName: "ear.badge.waveform", accessibilityDescription: "Emilia")
+        NSApp.mainMenu = ApplicationMenus.make()
+        statusItem = Self.makeStatusItem()
         statusItem.button?.target = self; statusItem.button?.action = #selector(toggle)
         statusItem.button?.toolTip = "Emilia — a second opinion for what you hear"
         model.onWarning = { [weak self] evidence in
@@ -52,6 +52,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSApp.terminate(nil)
         }
         #endif
+    }
+    static func makeStatusItem() -> NSStatusItem {
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        let image = NSImage(systemSymbolName: "ear", accessibilityDescription: "Emilia")
+        image?.size = NSSize(width: 18, height: 18)
+        image?.isTemplate = true
+        item.button?.image = image
+        item.button?.setAccessibilityLabel("Emilia")
+        item.isVisible = true
+        return item
     }
     @objc private func toggle() {
         showMainWindow()
