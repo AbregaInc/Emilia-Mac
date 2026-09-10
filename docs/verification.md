@@ -5,6 +5,11 @@ Device: Apple M1 Max, 64 GiB RAM; macOS 26.6.2; Xcode 26.6. Native arm64 build.
 ## Verified
 
 - Developer ID signing and strict code-signature verification pass.
+- Apple notarization accepted submission `ab7a34c2-f1ad-409a-b9db-ef56ae27fcd1`.
+  Stapling and ticket validation passed. Release ZIP SHA-256:
+  `96b7cf64e40c74ecfcf18a7647c897d0d1f57601425086159fc08242ed522dc1`.
+- Full enabled test run: 17 tests, zero failures, including local Whisper and
+  external Core ML integration. Credential tests made no Keychain writes.
 - Dock icon and normal launch window are visible; native accessibility controls
   were inspected. This replaced an unreliable menu-bar-only launch.
 - User confirmed both microphone and all-system-audio capture work on this Mac.
