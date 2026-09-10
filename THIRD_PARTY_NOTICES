@@ -1,0 +1,23 @@
+Emilia original source: Copyright 2026 Abrega, Inc. Apache-2.0.
+
+OpenAI Whisper code and model weights are MIT licensed.
+https://github.com/openai/whisper/blob/main/LICENSE
+Local transcription uses base.en, converted to GGML by the whisper.cpp project.
+Model source revision: https://huggingface.co/ggerganov/whisper.cpp/tree/5359861c739e955e79d9a303bcbc70fb988958b1
+Model SHA-256: a03779c86df3323075f5e796cb2ce5029f00ec8869eee3fdfb897afe36c6d002
+
+whisper.cpp / GGML: MIT, Copyright 2023-2024 The ggml authors.
+Pinned source: https://github.com/ggml-org/whisper.cpp/tree/2eeeba56e9edd762b4b38467bab96c2517163158
+The complete upstream license is included in the app bundle as whisper.cpp-LICENSE.
+
+Apple SDKs and frameworks remain subject to Apple's own terms.
+OpenAI Astra is a hosted API service, not a bundled or open-source model.
+
+Voice-origin checkpoints are separate artifacts with their own model cards,
+permissions and checksums. No Emilia research checkpoint is included in Git
+or implicitly relicensed by this source release.
+
+The fixed-shape graph forward method in scripts/convert-aasist.py is adapted
+from NAVER AASIST (MIT), copyright 2021-present NAVER Corp. Its complete license
+is in Resources/AASIST-LICENSE. The optional model is not included in Git or
+the distributable app bundle.
