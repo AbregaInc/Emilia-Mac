@@ -1,4 +1,9 @@
-Emilia 0.2.0 is a native Apple Silicon Mac app for live scam warning signs.
+Emilia 0.3.0 adds an included, clearly labeled NAVER AASIST-L baseline detector.
+
+The public download now supports local voice detection out of the box, without
+Python or another model download. Settings offers the baseline separately from
+the external Emilia v8 research model used in the recorded demo. Baseline
+voice-supported warnings identify the model explicitly.
 
 - Microphone and all-system-audio listening.
 - Local Whisper or OpenAI Realtime transcription, selectable in Settings.
@@ -13,17 +18,26 @@ Emilia 0.2.0 is a native Apple Silicon Mac app for live scam warning signs.
 
 Requires macOS 26+ and your own OpenAI API key. Local Whisper is bundled;
 OpenAI Realtime uploads audio, and Astra analyzes transcript excerpts in either mode.
-The voice-origin checkpoint is an optional separate local artifact and is not
-bundled in this download. No synthetic score alone can trigger a scam warning.
+The AASIST-L baseline and its MIT license are bundled. Emilia's research
+checkpoint remains an optional external artifact. No synthetic score alone
+can trigger a scam warning.
 
 The app is Developer ID signed, Apple-notarized and stapled. Both capture paths
-were confirmed on the target Mac. Twenty-seven automated checks passed (one
-paid check skipped in the full suite and passed separately), along
+were confirmed on the target Mac in prior versions. Thirty-one enabled automated
+checks passed (one additional paid check skipped and previously passed), along
 with live Astra and Realtime integration checks. This is a hackathon prototype,
 not a validated fraud detector or a guarantee that an unflagged call is safe.
 
-External recovered v8 and compatible Python are required for voice detection;
-neither ships in the download. Default unknown bandwidth has no single flag.
-The demo explicitly assumes wideband.
+The baseline uses five-second windows and an unvalidated 0.5 demonstration
+threshold. It false-flagged the human JFK verification sample. Numerical
+Core ML/PyTorch parity is verified; real-world detection accuracy is not.
+See docs/baseline.md. The recorded demo uses Emilia v8 with assumed wideband,
+not this baseline. An interrupted capture check could not be repeated because
+native UI automation failed; the default Settings labeling was verified.
 
-ZIP SHA-256: `8e97ec68a2ca7cd96d9b1948b7764f981d28e249379dc8665a7f52629e305e3c`
+Emilia was developed using data we cannot redistribute. Its checkpoint,
+training data and reference audio remain excluded. No Emilia thresholds changed.
+
+Notarization submission: `a7496bf2-fce7-4775-bebe-ab7dd413b798` (accepted and stapled).
+
+ZIP SHA-256: `a1bf28378b997ae29bf5d036eb2100c5c4c018aa92f38f59618d42185fadd7d5`

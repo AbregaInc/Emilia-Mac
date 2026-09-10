@@ -222,6 +222,15 @@ struct EmiliaView: View {
             }
             if model.listening || model.preparing { Text("Pause listening to change transcription.").font(.system(size: 10)).foregroundStyle(Palette.muted) }
             Text("Astra analyzes transcript excerpts in either mode.").font(.system(size: 12))
+            Text("VOICE DETECTOR").font(.system(size: 10, weight: .semibold, design: .monospaced))
+            ForEach(VoiceDetectorChoice.allCases, id: \.self) { choice in
+                Button { model.voiceChoice = choice } label: {
+                    Label(choice.label, systemImage: model.voiceChoice == choice ? "largecircle.fill.circle" : "circle")
+                }.font(.system(size: 12)).buttonStyle(.plain).disabled(model.listening || model.preparing)
+            }
+            if model.voiceChoice == .baseline {
+                Text("NAVER AASIST-L runs locally and is included. Its 0.5 flag threshold is an unvalidated demo setting. This is a public baseline, not the Emilia research model shown in the video.").font(.system(size: 11)).foregroundStyle(Palette.muted)
+            } else {
             Text("EMILIA V8 · BANDWIDTH ASSUMPTION").font(.system(size: 10, weight: .semibold, design: .monospaced))
             ForEach(VoiceBandwidth.allCases, id: \.self) { bandwidth in
                 Button { model.voiceBandwidth = bandwidth } label: {
@@ -229,6 +238,7 @@ struct EmiliaView: View {
                 }.font(.system(size: 12)).buttonStyle(.plain).disabled(model.listening || model.preparing)
             }
             Text("Capture rate does not reveal call bandwidth. Unknown keeps both decisions; assumptions are for this local demo.").font(.system(size: 10)).foregroundStyle(Palette.muted)
+            }
             Text("Recent voice evidence helps Astra assess impersonation. Amber means synthetic-voice evidence; red requires suspicious conversation. Neither proves identity.").font(.system(size: 12)).foregroundStyle(Palette.muted)
             if let latency = model.apiLatency { Text(String(format: "Last Astra response: %.1fs · %d requests", latency, model.assessments)).font(.system(size: 11, design: .monospaced)) }
             Button("Done") { model.settingsVisible = false }.buttonStyle(.borderedProminent).tint(Palette.accent)
@@ -286,7 +296,7 @@ struct WarningCard: View {
             }
             Text("Pause before you act.").font(.system(size: 27, design: .serif))
             if evidence.assessment.usesVoiceEvidence == true {
-                Text("Voice + conversation · assumed \(evidence.voiceEvidence?.bandwidth.rawValue ?? "unknown")")
+                Text(evidence.voiceEvidence?.detectorKind == "aasist_l_baseline" ? "Voice + conversation · AASIST-L baseline" : "Voice + conversation · assumed \(evidence.voiceEvidence?.bandwidth.rawValue ?? "unknown")")
                     .font(.system(size: 10, weight: .medium)).foregroundStyle(Palette.accent)
             }
             Text(evidence.assessment.reason).font(.system(size: 13, weight: .medium)).fixedSize(horizontal: false, vertical: true)

@@ -1,7 +1,8 @@
 """Convert an explicitly supplied AASIST-L checkpoint; verify Core ML/PyTorch parity.
 
-No model or upstream source is stored in the public source tree. This conversion
-does not grant checkpoint redistribution or expand dataset permissions.
+No model or upstream source is stored in the public source tree. The pinned
+official MIT-licensed checkpoint is converted for the public release; training
+data permissions are separate and no training data is distributed.
 """
 import argparse
 import hashlib
@@ -18,6 +19,7 @@ import torch
 parser = argparse.ArgumentParser()
 parser.add_argument("--source", type=Path, required=True)
 parser.add_argument("--output", type=Path, required=True)
+parser.add_argument("--validation-wav", type=Path, action="append", default=[])
 args = parser.parse_args()
 sys.path.insert(0, str(args.source.resolve()))
 from models.AASIST import Model
@@ -75,16 +77,27 @@ for seed in (17, 29, 43):
     actual = float(np.asarray(converted.predict({"audio": audio})["synthetic_score"]).reshape(-1)[0])
     checks.append({"seed": seed, "pytorch": reference, "coreml": actual, "absolute_error": abs(reference - actual)})
 assert max(c["absolute_error"] for c in checks) < 0.001, checks
+import wave
+for path in args.validation_wav:
+    with wave.open(str(path), "rb") as wav:
+        assert wav.getframerate() == 16000 and wav.getnchannels() == 1 and wav.getsampwidth() == 2
+        audio = np.frombuffer(wav.readframes(80000), dtype="<i2").astype(np.float32) / 32768
+    assert len(audio) == 80000
+    audio = audio.reshape(1,80000)
+    with torch.no_grad(): reference = float(reference_wrapper(torch.from_numpy(audio))[0])
+    actual = float(np.asarray(converted.predict({"audio": audio})["synthetic_score"]).reshape(-1)[0])
+    assert abs(reference-actual) < 0.001
+    checks.append({"wav": path.name, "sha256": hashlib.sha256(path.read_bytes()).hexdigest(), "pytorch": reference, "coreml": actual, "absolute_error": abs(reference-actual)})
 manifest = {
     "modelVersion": "aasist-l-a04c986-coreml-v1", "modelFile": model_path.name,
     "sha256": hashlib.sha256(model_path.read_bytes()).hexdigest(),
     "checkpointSHA256": hashlib.sha256(checkpoint.read_bytes()).hexdigest(),
     "inputName": "audio", "outputName": "synthetic_score", "sampleRate": 16000, "sampleCount": 80000,
     "threshold": 0.5, "thresholdStatus": "unvalidated demonstration threshold; not a fraud probability",
-    "license": "Upstream NAVER AASIST source MIT; checkpoint retained for user-authorized local demo only",
+    "license": "MIT, NAVER Corp.; checkpoint distributed inside the official clovaai/aasist repository under its root LICENSE",
     "sourceURL": "https://github.com/clovaai/aasist/tree/a04c9863f63d44471dde8a6abcb3b082b07cd1d1",
-    "deploymentPermission": "User authorized local hackathon integration on 2026-09-10; public weight redistribution not established",
-    "redistribution": False, "parity": checks,
+    "deploymentPermission": "Public baseline derived from the official MIT-licensed repository; retain NAVER copyright and LICENSE. No training data redistributed.",
+    "redistribution": True, "parity": checks,
 }
 (args.output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
 print(json.dumps({"model": str(model_path), "parity": checks}, indent=2))

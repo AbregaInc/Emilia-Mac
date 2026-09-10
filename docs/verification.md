@@ -4,6 +4,32 @@ Device: Apple M1 Max, 64 GiB RAM; macOS 26.6.2; Xcode 26.6. Native arm64 build.
 
 ## Verified
 
+### Current v0.3.0 public baseline
+
+- NAVER AASIST-L is bundled and selected by default; Emilia v8 is an explicit
+  external-model choice. No runtime Python or download is needed for baseline.
+- Core ML conversion matches original PyTorch on three fixed inputs and two
+  audio files. Native Swift inference matches the JFK reference score within
+  0.00001. The human JFK sample false-flags at the unvalidated 0.5 threshold;
+  these checks establish parity, not detection quality.
+- Enabled suite: 32 tests, one optional paid test skipped, zero failures.
+  This run enabled local Whisper, actual Emilia v8 and paid baseline Astra
+  checks. Benign reminder does not warn; supported family claim warns with
+  grounded quotes. The skipped Emilia-only paid check passed previously.
+- Baseline evidence records its own detector identity and score rather than
+  an Emilia human margin. Five-second baseline and three-second v8 windows
+  remain distinct. Incomplete input, stop/reload and evidence expiry are tested.
+- Developer ID signature and notarization/stapling passed; Apple submission
+  `a7496bf2-fce7-4775-bebe-ab7dd413b798`. ZIP SHA-256:
+  `a1bf28378b997ae29bf5d036eb2100c5c4c018aa92f38f59618d42185fadd7d5`.
+- Native UI verified the default baseline Settings description and started
+  System audio capture. An unrelated user call interrupted the session; it was
+  cleared without retaining a recording. Subsequent native automation failed
+  with “Sky Computer Use native pipe startup failed”, so the fresh end-to-end
+  visual warning check remains unverified. No claim is made about that session.
+
+Earlier release checks below are historical and retain their own version scope.
+
 ### Current v0.2.0 integration
 
 - Replaced the AASIST-L runtime with recovered original Emilia v8, seed 1,

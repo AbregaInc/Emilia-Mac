@@ -2,14 +2,16 @@
 
 **A second opinion for what you're hearing.**
 
-**Hackathon judges:** [Watch the 60-second demo](https://github.com/AbregaInc/Emilia-Mac/releases/download/v0.2.0/Emilia-60s-demo.mp4) · [Download the signed Mac app](https://github.com/AbregaInc/Emilia-Mac/releases/download/v0.2.0/Emilia-macOS-arm64.zip) · [Review guide](docs/judges.md)
+**Hackathon judges:** [Watch the 60-second demo](https://github.com/AbregaInc/Emilia-Mac/releases/download/v0.2.0/Emilia-60s-demo.mp4) · [Download the signed Mac app](https://github.com/AbregaInc/Emilia-Mac/releases/download/v0.3.0/Emilia-macOS-arm64.zip) · [Review guide](docs/judges.md)
 
 The demo uses the actual Emilia v8 research detector. Emilia was developed
 using data that we cannot redistribute; this public release excludes its
 training data, checkpoint and research-only reference audio. The downloadable
-app runs local Whisper or OpenAI Realtime plus Astra's transcript-based scam
-warnings without that detector. Amber and voice-supported impersonation warnings
-require the separately installed Emilia bundle. No other model is presented as Emilia.
+app includes a separately labeled **NAVER AASIST-L baseline**, running locally
+through Core ML without Python or another model download. Select it or the
+external Emilia v8 detector in Settings. The baseline can supply amber and
+voice-supported warnings; it is not the Emilia model shown in the video.
+See [baseline provenance and limitations](docs/baseline.md).
 
 A native Mac app with Dock and menu-bar controls that listens to a microphone or system audio,
 transcribes with local Whisper or OpenAI Realtime, and asks GPT-6 Astra to identify
@@ -24,6 +26,7 @@ Requires Apple Silicon, macOS 26+, Xcode command-line tools, CMake, Git and curl
 git clone https://github.com/AbregaInc/Emilia-Mac.git
 cd Emilia-Mac
 bash scripts/setup-whisper.sh
+bash scripts/setup-baseline.sh
 bash scripts/build-app.sh
 bash scripts/run.sh
 ```
@@ -93,6 +96,16 @@ quotes retracted from the current transcript cannot trigger new warnings.
 
 ## Voice-origin evidence
 
+The default **AASIST-L baseline** is bundled under the official repository's
+MIT license. It processes five-second windows, using the model's 64,600-sample
+prefix at 16 kHz. A score of at least 0.5 is a demonstration flag, not a
+calibrated probability. It false-flagged the human JFK verification sample;
+conversion parity does not establish real-world accuracy. Its identity and
+score metadata remain distinct from Emilia, including in voice-supported
+warnings. Neither model changes automatically if loading fails.
+
+The following contract applies only when **Emilia v8** is selected:
+
 The actual original promotion-v8 recovery replaces AASIST-L. Seed 1 is the
 first preregistered seed. One persistent worker verifies bundle checksums and
 scores nonoverlapping three-second PCM windows, preserving leading silence.
@@ -153,7 +166,8 @@ defaults to ad hoc unless a Developer ID identity is supplied. Notarization is
 a separate step requiring Apple credentials; a signature alone is not notarization.
 The notarization script does not save credentials in Keychain. Whisper weights
 are bundled from the checksum-verified local download, never committed to Git.
-The API key and voice-origin checkpoint are not bundled.
+The API key and Emilia research checkpoint are not bundled. The AASIST-L
+baseline and its license are bundled; its weights remain outside Git.
 
 ## Hackathon contribution
 

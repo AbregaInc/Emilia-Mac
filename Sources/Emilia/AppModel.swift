@@ -18,8 +18,11 @@ final class AppModel: ObservableObject {
     @Published var elapsed: Double = 0
     @Published var apiLatency: Double?
     @Published var assessments = 0
-    @Published var voiceStatus = "Emilia v8 · not started"
+    @Published var voiceStatus = "Voice detector · not started"
     @Published var synthetic = false
+    @Published var voiceChoice = VoiceDetectorChoice.baseline {
+        didSet { UserDefaults.standard.set(voiceChoice.rawValue, forKey: "voiceDetectorChoice") }
+    }
     @Published var voiceBandwidth: VoiceBandwidth = .unknown {
         didSet { UserDefaults.standard.set(voiceBandwidth.rawValue, forKey: "voiceBandwidth") }
     }
@@ -30,6 +33,7 @@ final class AppModel: ObservableObject {
     private let capture = AudioCapture()
     private var speech: SpeechPipeline?
     private let voice = VoiceDetector()
+    private var baseline = BaselineDetector()
     private var window = TranscriptWindow()
     private var policy = WarningPolicy()
     private var voiceEvidence = VoiceEvidenceWindow()
@@ -50,6 +54,7 @@ final class AppModel: ObservableObject {
     var onDismiss: (() -> Void)?
 
     init() {
+        voiceChoice = VoiceDetectorChoice(rawValue: UserDefaults.standard.string(forKey: "voiceDetectorChoice") ?? "") ?? .baseline
         transcriptionMode = TranscriptionMode(rawValue: UserDefaults.standard.string(forKey: "transcriptionMode") ?? "") ?? .local
         voiceBandwidth = VoiceBandwidth(rawValue: UserDefaults.standard.string(forKey: "voiceBandwidth") ?? "") ?? .unknown
         key = Environment.readKey(); keyConfigured = !key.isEmpty
@@ -67,6 +72,8 @@ final class AppModel: ObservableObject {
         let mode = captureMode
         let transcription = transcriptionMode
         let bandwidth = voiceBandwidth
+        let detectorChoice = voiceChoice
+        let baseline = BaselineDetector(); self.baseline = baseline
         if transcription == .realtime && !keyConfigured { settingsVisible = true; errorMessage = "Add an API key to use OpenAI Realtime."; return }
         sessionID = UUID(); let token = sessionID
         preparing = true; errorMessage = nil; degraded = false
@@ -77,13 +84,16 @@ final class AppModel: ObservableObject {
         startTask = Task {
             let pipeline = SpeechPipeline(mode: transcription, key: key)
             do {
-                voiceStatus = "Loading Emilia v8…"
-                status = "Loading Emilia v8…"
+                voiceStatus = "Loading \(detectorChoice.label)…"
+                status = voiceStatus
                 var voiceReady = false
                 do {
-                    let version = try await voice.load(); voiceReady = version != nil
+                    let version: String?
+                    if detectorChoice == .baseline { try await baseline.load(); version = "AASIST-L baseline · local Core ML" }
+                    else { version = try await voice.load() }
+                    voiceReady = version != nil
                     guard sessionID == token, !Task.isCancelled else { return }
-                    voiceStatus = version.map { "\($0) · \(bandwidth.label)" } ?? "Emilia v8 not installed"
+                    voiceStatus = version.map { detectorChoice == .baseline ? $0 : "\($0) · \(bandwidth.label)" } ?? "Emilia v8 not installed"
                 } catch {
                     guard sessionID == token, !Task.isCancelled else { return }
                     voiceStatus = "Voice detector unavailable: \(error.localizedDescription)"
@@ -103,7 +113,7 @@ final class AppModel: ObservableObject {
                 speech = pipeline; epoch = ProcessInfo.processInfo.systemUptime; lastAudio = epoch
                 listening = true; preparing = false; status = "Listening · \(mode.rawValue)"
                 captureTask = Task.detached(priority: .userInitiated) { [weak self, voiceReady] in
-                    var accumulator = VoicePCMAccumulator()
+                    var accumulator = VoicePCMAccumulator(windowSeconds: detectorChoice.windowSeconds)
                     var lastMeter = 0.0
                     do {
                         for await item in stream {
@@ -117,7 +127,7 @@ final class AppModel: ObservableObject {
                                 }
                                 if voiceReady {
                                     let windows = accumulator.append(samples, sampleRate: Int(item.pcm.format.sampleRate), channels: Int(item.pcm.format.channelCount), start: item.time, source: mode.rawValue)
-                                    for window in windows { await self?.scheduleVoice(window, bandwidth: bandwidth, token: token) }
+                                    for window in windows { await self?.scheduleVoice(window, bandwidth: bandwidth, choice: detectorChoice, baseline: baseline, token: token) }
                                 }
                         }
                     } catch {
@@ -156,11 +166,19 @@ final class AppModel: ObservableObject {
         else if degraded && errorMessage == nil { degraded = false; status = "Listening" }
     }
     private func setVoiceStatus(_ value: String, token: UUID) { guard sessionID == token else { return }; voiceStatus = value }
-    private func scheduleVoice(_ window: VoicePCMWindow, bandwidth: VoiceBandwidth, token: UUID) {
+    private func scheduleVoice(_ window: VoicePCMWindow, bandwidth: VoiceBandwidth, choice: VoiceDetectorChoice, baseline: BaselineDetector, token: UUID) {
         guard sessionID == token, listening, voiceTask == nil else { return }
         voiceTask = Task {
             defer { if sessionID == token { voiceTask = nil } }
             do {
+                if choice == .baseline {
+                    let score = try await baseline.score(window)
+                    guard sessionID == token, listening else { return }
+                    if window.hasSignal { voiceEvidence.appendBaseline(score: score, audioEnd: window.end) }
+                    refreshVoiceEvidence(at: max(window.end, ProcessInfo.processInfo.systemUptime-epoch))
+                    voiceStatus = "AASIST-L baseline · " + (synthetic ? "Synthetic voice evidence" : "No fresh synthetic flag")
+                    return
+                }
                 let result = try await voice.score(window, bandwidth: bandwidth)
                 guard window.hasSignal else {
                     if sessionID == token { refreshVoiceEvidence(at: ProcessInfo.processInfo.systemUptime - epoch) }
@@ -190,7 +208,7 @@ final class AppModel: ObservableObject {
     private func refreshVoiceEvidence(at now: Double) {
         let summary = voiceEvidence.summary(at: now)
         synthetic = summary?.supportsSynthetic == true
-        if summary == nil && voiceStatus.contains("Synthetic voice evidence") { voiceStatus = "Emilia v8 · waiting for fresh voice evidence" }
+        if summary == nil && voiceStatus.contains("Synthetic voice evidence") { voiceStatus = "\(voiceChoice == .baseline ? "AASIST-L baseline" : "Emilia v8") · waiting for fresh voice evidence" }
         if warning?.assessment.usesVoiceEvidence == true && !synthetic { warning = nil; onDismiss?() }
     }
     private func captureFailed(_ message: String, token: UUID) {
@@ -245,6 +263,7 @@ final class AppModel: ObservableObject {
         riskTask?.cancel(); riskTask = nil
         capture.stop(); captureTask?.cancel(); captureTask = nil
         voiceTask?.cancel(); voiceTask = nil; voice.stop()
+        let oldBaseline = baseline; Task { await oldBaseline.stop() }
         speech?.stop(); speech = nil
         listening = false; preparing = false; level = 0; status = "Paused"
         window.clear(); transcript = ""; lastSubmitted = ""; warning = nil; synthetic = false

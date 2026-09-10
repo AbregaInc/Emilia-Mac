@@ -19,5 +19,10 @@ or implicitly relicensed by this source release.
 
 The fixed-shape graph forward method in scripts/convert-aasist.py is adapted
 from NAVER AASIST (MIT), copyright 2021-present NAVER Corp. Its complete license
-is in Resources/AASIST-LICENSE. The optional model is not included in Git or
-the distributable app bundle.
+is in Resources/AASIST-LICENSE and in the app bundle. The public app includes
+a Core ML conversion of the AASIST-L checkpoint distributed in that official
+MIT-licensed repository at a04c9863f63d44471dde8a6abcb3b082b07cd1d1.
+The checkpoint SHA-256 is 814331d088032bb4c3fa61cc014789eadeed464209dd094ab3a2dd6ffbdce27a.
+Model weights are release/build artifacts, not Git source. No AASIST training
+data is distributed. See docs/baseline-manifest.json for conversion checksums
+and numerical parity; this baseline is not Emilia v8.

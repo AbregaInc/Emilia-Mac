@@ -26,7 +26,11 @@ public struct AstraClient: Sendable {
     accessibility voice, educational quotation, or 'never share your code' is NOT sufficient.
     Voice metadata is supporting evidence, NOT a fraud probability, speaker identity, or proof that a person is AI.
     Signed human margins are NOT probabilities; negative means a flag under an explicitly assumed bandwidth. Consecutive observations are correlated.
-    When bandwidth=unknown there is no single classification: do not use the two alternative decisions to justify a voice-dependent warning.
+    For detectorKind=emilia_v8, bandwidth=unknown has no single classification: do not use the two alternative decisions to justify a voice-dependent warning.
+    For detectorKind=aasist_l_baseline, evidence is from the separately labeled public AASIST-L baseline, NOT Emilia v8.
+    Its meanBaselineScore is an uncalibrated classifier output with a demonstration threshold of 0.5, not a probability of synthesis or fraud.
+    Bandwidth is not classified by this baseline; unknown is not an alternative-decision abstention for this detector.
+    Treat baseline flags as uncertain supporting evidence only and name the baseline in a voice-dependent warning reason.
     Missing evidence means unknown, not human or safe.
     Recent repeated synthetic flags can strengthen an impersonation warning when the transcript explicitly claims a trusted personal
     relationship (for example, 'Mom, it's your daughter') while concealing or contradicting synthetic/assistive use.

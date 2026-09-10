@@ -1,8 +1,8 @@
 # Emilia — judges' review guide
 
 [60-second demo](https://github.com/AbregaInc/Emilia-Mac/releases/download/v0.2.0/Emilia-60s-demo.mp4)
-· [Signed, notarized Mac download](https://github.com/AbregaInc/Emilia-Mac/releases/download/v0.2.0/Emilia-macOS-arm64.zip)
-· [Release](https://github.com/AbregaInc/Emilia-Mac/releases/tag/v0.2.0)
+· [Signed, notarized Mac download](https://github.com/AbregaInc/Emilia-Mac/releases/download/v0.3.0/Emilia-macOS-arm64.zip)
+· [Release](https://github.com/AbregaInc/Emilia-Mac/releases/tag/v0.3.0)
 
 Emilia adds a second opinion to a live call: amber indicates synthetic-voice
 evidence, while a red, click-through border and quoted warning ask the listener
@@ -70,11 +70,13 @@ Local Whisper is bundled. API keys entered in Settings use macOS Keychain.
 Realtime sends audio to OpenAI; Astra receives transcript excerpts and optional
 voice summaries. No call recordings are saved by default.
 
-Without the external detector, the app shows Emilia v8 as not installed;
-transcription and transcript-grounded scam warnings still work. Try the
+The download defaults to a bundled, clearly labeled NAVER AASIST-L baseline.
+No Python or additional detector download is needed. Emilia v8 remains a
+separate Settings choice requiring its external bundle. Try the
 credential-request enactment in [demo/scenarios.md](../demo/scenarios.md).
-Amber and the voice-supported family-impersonation example require the detector.
-A separate public baseline is not bundled in v0.2.0.
+Amber and voice-supported warnings work with the baseline, but its behavior
+differs from the recorded Emilia demo. Its unvalidated 0.5 threshold false-flagged
+the human JFK verification sample. See [baseline provenance and limitations](baseline.md).
 
 ## Where to review the engineering
 
@@ -83,6 +85,7 @@ A separate public baseline is not bundled in v0.2.0.
 | Native capture, independent source sessions | [AudioCapture.swift](../Sources/Emilia/AudioCapture.swift) |
 | Live orchestration and stale-result rejection | [AppModel.swift](../Sources/Emilia/AppModel.swift) |
 | JSONL worker lifecycle and response IDs | [VoiceDetector.swift](../Sources/Emilia/VoiceDetector.swift) |
+| Bundled public baseline | [BaselineDetector.swift](../Sources/Emilia/BaselineDetector.swift) |
 | Three-second PCM contract | [VoicePCMWindow.swift](../Sources/EmiliaCore/VoicePCMWindow.swift) |
 | Bounded evidence and expiry | [VoiceEvidence.swift](../Sources/EmiliaCore/VoiceEvidence.swift) |
 | Astra prompt and strict schema | [AstraClient.swift](../Sources/EmiliaCore/AstraClient.swift) |
@@ -95,7 +98,7 @@ A separate public baseline is not bundled in v0.2.0.
 Build instructions are in the [README](../README.md). After setup, `swift test`
 runs ordinary tests without API credentials; optional model/API checks are
 documented in [verification.md](verification.md). The latest enabled app suite
-passed 27 checks with one paid check skipped and passed separately. Seven video
+passed 31 checks with one additional paid check skipped (previously passed separately). Seven video
 checks passed, including exact 60-second duration and amber/red visibility.
 
 Known limits include unvalidated real-world false-warning rates, no speaker

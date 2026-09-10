@@ -40,10 +40,11 @@ public struct VoicePCMWindow: Sendable {
 }
 /// Nonoverlapping wall-clock windows. Gaps, source changes and format changes reset the buffer.
 public struct VoicePCMAccumulator: Sendable {
+    private let windowSeconds: Int
     private var samples: [Float] = []
     private var rate = 0; private var channels = 0; private var source = ""
     private var start = 0.0; private var expected = 0.0
-    public init() {}
+    public init(windowSeconds: Int = 3) { precondition((1...30).contains(windowSeconds)); self.windowSeconds = windowSeconds }
     public mutating func append(_ pcm: [Float], sampleRate: Int, channels: Int, start: Double, source: String) -> [VoicePCMWindow] {
         guard (1...192000).contains(sampleRate), (1...8).contains(channels), pcm.count % channels == 0, start.isFinite else { return [] }
         if rate != sampleRate || self.channels != channels || self.source != source || abs(start - expected) > 0.1 {
@@ -52,11 +53,11 @@ public struct VoicePCMAccumulator: Sendable {
         rate = sampleRate; self.channels = channels; self.source = source
         expected = start + Double(pcm.count / channels) / Double(rate)
         samples.append(contentsOf: pcm)
-        let size = rate * 3 * channels
+        let size = rate * windowSeconds * channels
         var result: [VoicePCMWindow] = []
         while samples.count >= size {
-            result.append(VoicePCMWindow(samples: Array(samples.prefix(size)), sampleRate: rate, channels: channels, end: self.start + 3))
-            samples.removeFirst(size); self.start += 3
+            result.append(VoicePCMWindow(samples: Array(samples.prefix(size)), sampleRate: rate, channels: channels, end: self.start + Double(windowSeconds)))
+            samples.removeFirst(size); self.start += Double(windowSeconds)
         }
         return result
     }

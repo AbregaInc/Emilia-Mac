@@ -1,0 +1,50 @@
+{
+  "modelVersion": "aasist-l-a04c986-coreml-v1",
+  "modelFile": "aasist-l.mlmodel",
+  "sha256": "10d9c39ed442b9b2fb16c596237bca2c629ff4a0b93c7ddabfe2d55dbb600de7",
+  "checkpointSHA256": "814331d088032bb4c3fa61cc014789eadeed464209dd094ab3a2dd6ffbdce27a",
+  "inputName": "audio",
+  "outputName": "synthetic_score",
+  "sampleRate": 16000,
+  "sampleCount": 80000,
+  "threshold": 0.5,
+  "thresholdStatus": "unvalidated demonstration threshold; not a fraud probability",
+  "license": "MIT, NAVER Corp.; checkpoint distributed inside the official clovaai/aasist repository under its root LICENSE",
+  "sourceURL": "https://github.com/clovaai/aasist/tree/a04c9863f63d44471dde8a6abcb3b082b07cd1d1",
+  "deploymentPermission": "Public baseline derived from the official MIT-licensed repository; retain NAVER copyright and LICENSE. No training data redistributed.",
+  "redistribution": true,
+  "parity": [
+    {
+      "seed": 17,
+      "pytorch": 0.9969649910926819,
+      "coreml": 0.9969649910926819,
+      "absolute_error": 0.0
+    },
+    {
+      "seed": 29,
+      "pytorch": 0.9927829504013062,
+      "coreml": 0.9927829504013062,
+      "absolute_error": 0.0
+    },
+    {
+      "seed": 43,
+      "pytorch": 0.9975053668022156,
+      "coreml": 0.9975053668022156,
+      "absolute_error": 0.0
+    },
+    {
+      "wav": "jfk.wav",
+      "sha256": "59dfb9a4acb36fe2a2affc14bacbee2920ff435cb13cc314a08c13f66ba7860e",
+      "pytorch": 0.9923725128173828,
+      "coreml": 0.9923725128173828,
+      "absolute_error": 0.0
+    },
+    {
+      "wav": "caller-system.wav",
+      "sha256": "3e6bcaf2095e68d3e356d59947f8d6d4e28751c7099dc64a3d16f9207add0f59",
+      "pytorch": 0.9999446868896484,
+      "coreml": 0.9999446868896484,
+      "absolute_error": 0.0
+    }
+  ]
+}

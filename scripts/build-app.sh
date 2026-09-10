@@ -2,6 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 test -f Models/ggml-base.en.bin || { echo 'Run bash scripts/setup-whisper.sh first.'; exit 1; }
+test -f Models/AASISTBaseline/aasist-l.mlmodel || { echo 'Run bash scripts/setup-baseline.sh first.'; exit 1; }
 swift build -c release --product Emilia
 swift scripts/make-icon.swift .build/AppIcon.iconset
 iconutil -c icns .build/AppIcon.iconset -o .build/AppIcon.icns
@@ -14,6 +15,9 @@ cp Models/ggml-base.en.bin "$app/Contents/Resources/ggml-base.en.bin"
 cp THIRD_PARTY_NOTICES "$app/Contents/Resources/THIRD_PARTY_NOTICES"
 cp .deps/whisper.cpp/LICENSE "$app/Contents/Resources/whisper.cpp-LICENSE"
 cp Resources/Whisper-LICENSE "$app/Contents/Resources/Whisper-LICENSE"
+cp Resources/AASIST-LICENSE "$app/Contents/Resources/AASIST-LICENSE"
+xcrun coremlcompiler compile Models/AASISTBaseline/aasist-l.mlmodel "$app/Contents/Resources"
+cp Models/AASISTBaseline/manifest.json "$app/Contents/Resources/aasist-baseline-manifest.json"
 identity="${SIGNING_IDENTITY:--}"
 if [ "$identity" = - ]; then
     codesign --force --sign - --entitlements Resources/Emilia.entitlements "$app"
