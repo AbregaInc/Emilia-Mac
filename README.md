@@ -2,6 +2,11 @@
 
 **A second opinion for what you're hearing.**
 
+Watch the one-minute demo below. It uses actual Emilia v8; the public app includes
+the separately labeled AASIST-L baseline.
+
+https://github.com/user-attachments/assets/341f5dcc-5401-40f1-acba-bc40e4085eef
+
 **Hackathon judges:** [Watch the 60-second demo](https://github.com/AbregaInc/Emilia-Mac/releases/download/v0.2.0/Emilia-60s-demo.mp4) · [Download the signed Mac app](https://github.com/AbregaInc/Emilia-Mac/releases/download/v0.3.0/Emilia-macOS-arm64.zip) · [Review guide](docs/judges.md)
 
 The demo uses the actual Emilia v8 research detector. Emilia was developed
